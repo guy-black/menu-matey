@@ -1,0 +1,165 @@
+Library will have funtions to
+  - parse a ucfml model
+  - generate a UCFMLmodel date structure
+  - define provide datatypes and functions to do the stuff
+
+types and functions rough drafts
+```
+data UCFMLmodel = UCFMLmodel
+    { meta     :: UCFMLmeta
+    , body     :: UCFMLbody
+    , template :: UCFMLtemplate
+    }
+
+data UCFMLmeta =  UCFMLmeta
+    { title    :: Text
+    , about    :: Text
+    , upstream :: Text
+    }
+
+type UCFMLbody = [ OptType ]
+
+data OptType = Single Option
+             | Several OptSect
+
+data OptSect = OptSect
+    { title   :: Text
+    , about   :: Text
+    , options :: [ Option ]
+    }
+
+data Option = Option
+    { title  :: Text
+    , about  :: Text
+    , refvar :: Text -- ?????? maybe not the best way????? maybe a special different type??? idk????
+    , input  :: Input
+    }
+
+data Input = Dropdown FixedSetIn
+           | Checkbox FixedSetIn
+           | RadiButt FixedSetIn
+           | Textual  TextInput
+           | Numeric  NumbInput
+           | Listed   ListIn Input
+           | Compound CompIn Input
+
+data FixedSetIn = FixedSetIn
+    { optlist  :: [ FixedSetOpt ]
+    , minSel   :: Maybe Int -- these are the only real "validator" associated with checkbox, dropdown, or radio button inputs
+    , maxSel   :: Maybe Int -- if no min or max selected options required then set both to Nothing, otherwise set to Just whateve the limit is
+    }
+
+data FixedSetOpt = FixedSetOpt
+    { def :: Bool -- whether this option is selected by default
+    , ext :: Text -- user facing text associated with the value
+    , int :: Text -- internal text asscociated with the value
+    }
+
+data TextInput = TextInput
+    { minLn     :: Maybe Int -- Just the minimum number of character, or Nothing for no minimumm
+    , maxLn     :: Maybe Int -- Just the maximum number of character, or Nothing for no maximumm
+    , required  :: Bool -- whether or not there needs to be a valid value to generate a file
+    , default   :: Text -- the text to be used by default
+    , validator :: [ Validator]
+
+data NumbInput = NumbInput
+    { floating  :: Bool
+    , signed    :: Bool
+    , LRange    :: Maybe UCFMLNum
+    , URange    :: Maybe UCFMLNum
+    , base      :: NumBase
+    , required  :: Bool
+    , default   :: Maybe UCFMLNum
+    , validator :: [ Validator ]
+    }
+
+data ListIn = ListIn
+    { minLn   :: Maybe Int -- Nothing for no minimum or Just minimum for the minimum list length
+    , maxLn   :: Maybe Int -- Nothing for no maximum or Just maximum for maximum length
+    , default :: [ UCFMLVal ]
+    , input   :: Input
+    }
+
+data CompIn = [ (Text, Input ) ] -- [ (label, input) ]
+
+data Validator = MustBe UCFMLBool
+               | MustNot UCFMLBool
+
+type UCFMLBool = Unset
+               | Unresolved UCFMLExpr
+               | Resolved Bool
+
+data UCFMLNum = UnsignedInt Int
+              | UnsignedFloat Float
+              | SignedInt Int
+              | SignedFloat Float
+
+data UCFMLOperator = Add
+                   | Sub
+                   | Mul
+                   | Div
+                   | IntDiv
+                   | RemDiv
+                   | Exp
+
+data UCFMLComparison = EQ
+                     | NEQ
+                     | GT
+                     | LT
+                     | GTE
+                     | LTE
+
+data UCFMLGate = AND
+               | NAND
+               | OR
+               | NOR
+               | XOR
+               | XNOR
+               | NEVER
+               | ALWYS
+               | IDL
+               | NIDL
+               | IDR
+               | NIDR
+               | LNOTR
+               | NLNTR
+               | RNOTL
+               | NRNTL
+
+```
+
+
+library file structure
+
+src/
+
+
+App will have to
+
+-- on initial launch --
+
+  - check if a file was passed as an argument on execution
+  - if not prompt for a ucfml model
+  - if yes attempt to parse the file as a UCFMLmodel
+    - if failed, display relevant errors
+    - if successful, render all text and option selectorrs appropriateley as well as a button labeled "generate" or something to that effect
+      - if all options marked "required" havea an associated value, and all options pass their validator check then make the generate button clickable
+      - else the button is greyed out and empty
+    - generate a Map Text UcfmlVal value to hold option refvar and values
+    - label highlight all options that are "required" and don't have an active (or default on first load) value selected
+
+-- upon any user interaction with options --
+
+  - visually change input to show new value
+  - check if the new selected value passes its validator check
+    - if not then display relevant error
+    - if so then update the Map Text UcfmlVal so that the key at refvar has the value of the optipon
+  - if the option was marked required and the new state has a value that passes the validator, then unhiglight, else highlight
+
+-- on clicking the generate button --
+
+  - find where to save generated files
+    - if files have a default path for location, ask user if that is where they'd like to save the files
+    - else ask user where to save files to
+  - process each file's lines from first to last
+    -
