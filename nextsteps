@@ -1,0 +1,11 @@
+- generate graphical window
+
+- check if a file was passed in as an argument
+
+- try to parse the file as a UCFMLModel
+
+- display option settings
+
+- generate filled in template
+
+- either write file or pass back into menumate
