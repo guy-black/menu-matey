@@ -1,6 +1,8 @@
-- check if a file was passed in as an argument
-
-- try to parse the file as a UCFMLModel
+- try to parse the argument as a UCFMLModel
+  - should return either
+    - file not found
+    - file not a valid UCFML model
+    - a UCFMLModel
 
 - display option settings
 

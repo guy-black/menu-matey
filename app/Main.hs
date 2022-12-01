@@ -30,8 +30,11 @@ buildUI
   :: WidgetEnv AppModel AppEvent
   -> AppModel
   -> WidgetNode AppModel AppEvent
-buildUI wenv model = label "wello horld"
-
+buildUI wenv model =
+  if T.null (ucfmlfile model) then
+    label "no argument passed"
+  else
+    label (ucfmlfile model)
 
 main :: IO ()
 main = do
