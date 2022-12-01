@@ -1,7 +1,7 @@
 name:                menumate
 version:             0.1.0.0
 github:              "guy-black/menumate"
-license:             BSD3
+license:             MIT
 author:              "Guy Black"
 maintainer:          "guyb2602@gmail.com"
 copyright:           "guy"
@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/guy-
 dependencies:
 - base >= 4.7 && < 5
 - monomer >= 1.5
+- text
 
 ghc-options:
 - -Wall
