@@ -1,8 +1,12 @@
-- try to parse the argument as a UCFMLModel
-  - should return either
-    - file not found
-    - file not a valid UCFML model
-    - a UCFMLModel
+- check if the passed file exists
+
+- if it exists read it in and split it into it's 3 secctions
+
+- parse meta into `UCFMLmeta`
+
+- parse body into `UCFMLbody`
+
+- parse template into `UCFMLtemplate`
 
 - display option settings
 

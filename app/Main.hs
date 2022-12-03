@@ -4,6 +4,7 @@
 module Main (main) where
 
 import qualified Data.Text as T
+import UCFML
 import Monomer
 import System.Environment
     ( getArgs
@@ -11,7 +12,7 @@ import System.Environment
 
 
 data AppModel = AppModel
-    { ucfmlfile :: T.Text
+    { ucfmlfile :: UCFMLFile
     } deriving (Eq, Show)
 
 data AppEvent = AppInit
@@ -31,19 +32,27 @@ buildUI
   -> AppModel
   -> WidgetNode AppModel AppEvent
 buildUI wenv model =
-  if T.null (ucfmlfile model) then
-    label "no argument passed"
-  else
-    label (ucfmlfile model)
+  case (ucfmlfile model) of
+    NoFile -> label "hey you didn't pass a file in. maybe later I'll add a file select button or something."
+    NotAFile -> label "hey, that's not a file"
+    RawFile t -> label t
+    ParseError t -> label t
+    ParsedFile u -> label "file pased successfully!"
 
 main :: IO ()
 main = do
   args <- getArgs
-  let model = AppModel (T.pack (unlines args)) in -- TODO: only set to true if the first argument is a file that can be pased as a UCFMLModel
-    startApp model handleEvent buildUI config where
-      config =
-        [ appWindowTitle "menumate"
-        , appInitEvent AppInit
-        , appTheme darkTheme
-        , appFontDef "Regular" "./assets/fonts/Roboto-Regular.ttf"
-        ]
+-- todo
+-- check if an argument was passed, if not set model to NoFile
+-- check if passed argument is a real file, if not set model to NotAFile
+-- set model to RawFile until parser is finished writing then
+-- if parse failed, set model to ParseError
+-- if parse succeeded, set model to ParsedFile
+
+  startApp model handleEvent buildUI config where
+    config =
+      [ appWindowTitle "menumatey"
+      , appInitEvent AppInit
+      , appTheme darkTheme
+      , appFontDef "Regular" "./assets/fonts/Roboto-Regular.ttf"
+      ]
