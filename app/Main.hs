@@ -6,6 +6,7 @@ module Main (main) where
 import qualified Data.Text as T
 import UCFML
 import Monomer
+import Control.Exception
 import System.Environment
     ( getArgs
     )
@@ -39,6 +40,8 @@ buildUI wenv model =
     ParseError t -> label t
     ParsedFile u -> label "file pased successfully!"
 
+
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -48,8 +51,8 @@ main = do
 -- set model to RawFile until parser is finished writing then
 -- if parse failed, set model to ParseError
 -- if parse succeeded, set model to ParsedFile
-
-  startApp model handleEvent buildUI config where
+  file <- try (readFile "../ucfml/kermit.ucml")
+  startApp (AppModel NoFile) handleEvent buildUI config where
     config =
       [ appWindowTitle "menumatey"
       , appInitEvent AppInit

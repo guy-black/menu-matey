@@ -1,11 +1,11 @@
-module UCFML ( ParsedFile (...)
-             , UCFMLmodel
-             , UCFMLmeta
-             , UCFMLbody
-             , OptType (...)
+module UCFML ( UCFMLFile (..)
+             , UCFMLModel
+             , UCFMLMeta
+             , UCFMLBody
+             , OptType (..)
              , OptSect
              , Option
-             , Input (...)
+             , Input (..)
              , FixedSetIn
              , FixedSetOpt
              , TextInput
@@ -13,12 +13,12 @@ module UCFML ( ParsedFile (...)
              , ListIn
              , CompIn
              , Validator
-             , UCFMLBool (...)
-             , UCFMLNum (...)
-             , UCFMLOperator (...)
-             , UCFMLComparison (...)
-             , UCFMLGate (...)
-             , UCFMLExpr (...) ) where
+             , UCFMLBool (..)
+             , UCFMLNum (..)
+             , UCFMLOperator (..)
+             , UCFMLComparison (..)
+             , UCFMLGate (..)
+             , UCFMLExpr (..) ) where
 
 import qualified Data.Text as T
 
@@ -30,37 +30,40 @@ data UCFMLFile = NoFile
                | NotAFile
                | RawFile T.Text
                | ParseError T.Text
-               | ParsedFile UCFMLmodel
+               | ParsedFile UCFMLModel
+               deriving (Eq, Show)
 
 data UCFMLModel = UCFMLMdel
     { meta     :: UCFMLMeta
     , body     :: UCFMLBody
     , template :: UCFMLTemplate
-    }
+    } deriving (Eq, Show)
 
 data UCFMLMeta =  UCFMLmeta
-    { title    :: UCFMLText
-    , about    :: UCFMLText
+    { mentitle :: UCFMLText
+    , aboutmen :: UCFMLText
     , upstream :: UCFMLText
-    }
+    } deriving (Eq, Show)
 
-type UCFMLBody = [ OptType ]
+data UCFMLBody = UCFMLBody [ OptType ]
+               deriving (Eq, Show)
 
 data OptType = Single Option
              | Several OptSect
+             deriving (Eq, Show)
 
 data OptSect = OptSect
-    { title   :: UCFMLText
-    , about   :: UCFMLText
-    , options :: [ Option ]
-    }
+    { sectitle :: UCFMLText
+    , aboutsec :: UCFMLText
+    , options  :: [ Option ]
+    } deriving (Eq, Show)
 
 data Option = Option
-    { title  :: UCFMLText
-    , about  :: UCFMLText
-    , refvar :: UCFMLText -- ?????? maybe not the best way????? maybe a special different type??? idk????
-    , input  :: Input
-    }
+    { optitle :: UCFMLText
+    , aboutop :: UCFMLText
+    , refvar  :: UCFMLText -- ?????? maybe not the best way????? maybe a special different type??? idk????
+    , input   :: Input
+    } deriving (Eq, Show)
 
 data Input = Dropdown FixedSetIn
            | Checkbox FixedSetIn
@@ -69,111 +72,128 @@ data Input = Dropdown FixedSetIn
            | Numeric  NumbInput
            | Listed   ListIn Input
            | Compound CompIn Input
+           deriving (Eq, Show)
 
 data FixedSetIn = FixedSetIn
     { optlist  :: [ FixedSetOpt ]
     , minSel   :: Maybe Int -- these are the only real "validator" associated with checkbox, dropdown, or radio button inputs
     , maxSel   :: Maybe Int -- if no min or max selected options required then set both to Nothing, otherwise set to Just whateve the limit is
-    }
+    } deriving (Eq, Show)
 
 data FixedSetOpt = FixedSetOpt
-    { def :: UCFMLBool -- whether this option is selected by default
-    , ext :: UCFMLText -- user facing text associated with the value
-    , int :: UCFMLText -- internal text asscociated with the value
-    }
+    { isdef :: UCFMLBool -- whether this option is selected by default
+    , ext   :: UCFMLText -- user facing text associated with the value
+    , int   :: UCFMLText -- internal text asscociated with the value
+    } deriving (Eq, Show)
 
 data TextInput = TextInput
-    { minLn     :: Maybe Int -- Just the minimum number of character, or Nothing for no minimumm
-    , maxLn     :: Maybe Int -- Just the maximum number of character, or Nothing for no maximumm
-    , required  :: UCFMLBool -- whether or not there needs to be a valid value to generate a file
-    , def       :: UCFMLText -- the text to be used by default
-    , validator :: [ Validator]
+    { timinLn     :: Maybe Int -- Just the minimum number of character, or Nothing for no minimumm
+    , timaxLn     :: Maybe Int -- Just the maximum number of character, or Nothing for no maximumm
+    , tireqd      :: UCFMLBool -- whether or not there needs to be a valid value to generate a file
+    , tidef       :: UCFMLText -- the text to be used by default
+    , tivali      :: [ Validator]
+    } deriving (Eq, Show)
 
 data NumbInput = NumbInput
     { floating  :: UCFMLBool
     , signed    :: UCFMLBool
-    , LRange    :: Maybe UCFMLNum
-    , URange    :: Maybe UCFMLNum
+    , lrange    :: Maybe UCFMLNum
+    , urange    :: Maybe UCFMLNum
     , base      :: NumBase
-    , required  :: Bool
-    , def       :: Maybe UCFMLNum
-    , validator :: [ Validator ]
-    }
+    , nireqd    :: Bool
+    , nidef     :: Maybe UCFMLNum
+    , nivali    :: [ Validator ]
+    } deriving (Eq, Show)
+
+data NumBase = Binary
+             | Octal
+             | Decimal
+             | Hexadecimal
+             deriving (Eq, Show)
 
 data ListIn = ListIn
-    { minLn   :: Maybe Int -- Nothing for no minimum or Just minimum for the minimum list length
-    , maxLn   :: Maybe Int -- Nothing for no maximum or Just maximum for maximum length
-    , def     :: [ UCFMLVal ]
-    , input   :: Input
-    }
+    { liminLn :: Maybe Int -- Nothing for no minimum or Just minimum for the minimum list length
+    , limaxLn :: Maybe Int -- Nothing for no maximum or Just maximum for maximum length
+    , lidef   :: [ UCFMLVal ]
+    , liinput   :: Input
+    } deriving (Eq, Show)
 
 data UCFMLVal = UBool UCFMLBool
               | UNum  UCFMLNum
               | UText UCFMLText
+              deriving (Eq, Show)
 
-data CompIn = [ (UCFMLText, Input ) ] -- [ (label, input) ]
+data CompIn = CompIn [(UCFMLText, Input )] -- [ (label, input) ]
+            deriving (Eq, Show)
 
 data Validator = MustBe UCFMLBool
                | MustNot UCFMLBool
+               deriving (Eq, Show)
 
-type UCFMLBool = Unset
-               | Unresolved UCFMLBoolExpr
-               | Resolved Bool
+data UCFMLBool = UnsetB
+               | UnresolvedB UCFMLBoolExpr
+               | ResolvedB Bool
+               deriving (Eq, Show)
 
-data UCFMLNum = Unset
+data UCFMLNum = UnsetN
               | UnsignedInt Int
               | UnsignedFloat Float
               | SignedInt Int
               | SignedFloat Float
-              | Unresolved UCFMLNumExpr
+              | UnresolvedN UCFMLNumExpr
+              deriving (Eq, Show)
 
-data UCFMLText = Unset
-               | Resolved Text
-               | Unresolved UCFMLTextExpr
+data UCFMLText = UnsetT
+               | Resolved T.Text
+               | UnresolvedT UCFMLTextExpr
+               deriving (Eq, Show)
 
 data UCFMLExpr = BoolGen UCFMLBoolExpr
                | NumGen UCFMLNumExpr
                | TextGen UCFMLTextExpr
+               deriving (Eq, Show)
 
 data UCFMLBoolExpr = RegExp UCFMLRegExp
                    | BoolLog UCFMLBoolLog
                    | BoolComp UCFMLBoolComp
+                   deriving (Eq, Show)
 
 data UCFMLRegExp = UCFMLRegExp
     { source :: UCFMLText
-    , regex  :: Text -- ?? idk maybe a better type for this ??
-    }
+    , regex  :: UCFMLText -- ?? idk maybe a better type for this ??
+    } deriving (Eq, Show)
 
 data UCFMLBoolLog = UCFMLBoolLog
-    { left  :: UCFMLBool
+    { blleft  :: UCFMLBool
     , gate  :: UCFMLGate
-    , right :: UCFMLBool
-    }
+    , blright :: UCFMLBool
+    } deriving (Eq, Show)
 
 data UCFMLBoolComp = UCFMLBoolComp
-    { left  :: UCFMLNum
-    , comp  :: UCFMLComparison
-    , right :: UCFMLNum
-    }
+    { bcleft  :: UCFMLNum
+    , comp    :: UCFMLComparison
+    , bcright :: UCFMLNum
+    } deriving (Eq, Show)
 
 data UCFMLNumExpr = UCFMLNumExpr
-    { left  :: UCFMLNum
-    , Op    :: UCFMLOperator
-    , right :: UCFMLNum
-    }
+    { neleft  :: UCFMLNum
+    , op      :: UCFMLOperator
+    , neright :: UCFMLNum
+    } deriving (Eq, Show)
 
 data UCFMLTextExpr = SedExp UCFMLSedExp
                    | Conc UCFMLConcat
+                   deriving (Eq, Show)
 
 data UCFMLSedExp = UCFMLSedExp
-    { source :: UCFMLText
-    , sedexp :: Text -- again, probably a better type for this
-    }
+    { sedinp :: UCFMLText
+    , sedexp :: UCFMLText -- again, probably a better type for this
+    } deriving (Eq, Show)
 
 data UCFMLConcat = UCFMLConcat
     { between :: UCFMLText
     , texts   :: [ UCFMLText ]
-    }
+    } deriving (Eq, Show)
 
 data UCFMLOperator = Add
                    | Sub
@@ -182,6 +202,7 @@ data UCFMLOperator = Add
                    | IntDiv
                    | RemDiv
                    | Exp
+                   deriving (Eq, Show)
 
 data UCFMLComparison = EQ
                      | NEQ
@@ -189,6 +210,7 @@ data UCFMLComparison = EQ
                      | LT
                      | GTE
                      | LTE
+                     deriving (Eq, Show)
 
 data UCFMLGate = AND
                | NAND
@@ -206,17 +228,20 @@ data UCFMLGate = AND
                | NLNTR
                | RNOTL
                | NRNTL
+               deriving (Eq, Show)
 
-type UCFMLTemplate = [ UCFMLConFile ]
+data UCFMLTemplate = UCFMLTemplate [ UCFMLConFile ] deriving (Eq, Show)
 
 data UCFMLConFile = UCFMLConFile
     { fileName :: UCFMLText
     , filePath :: UCFMLFilePath
     , lines    :: [ UCFMLText ]
-    }
+    } deriving (Eq, Show)
+
 
 data UCFMLFilePath = UnixStyle UCFMLText
                    | WinStyle UCFMLText
+                   deriving (Eq, Show)
 
 {-
   **** Functions for these data types ****
