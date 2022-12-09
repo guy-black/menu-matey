@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module UCFML ( UCFMLFile (..)
+             -- TODO, make sure to only export what's needed
+module UCFML {-( UCFMLFile (..)
              , UCFMLModel
              , UCFMLMeta
              , UCFMLBody
@@ -20,7 +21,7 @@ module UCFML ( UCFMLFile (..)
              , UCFMLOperator (..)
              , UCFMLComparison (..)
              , UCFMLGate (..)
-             , UCFMLExpr (..) ) where
+             , UCFMLExpr (..) )-} where
 
 import qualified Data.Text as T
 
@@ -257,17 +258,17 @@ data UCFMLFilePath = UnixStyle UCFMLText
 -- check all lines for an unquotted "--"
 -- remove any text wrapped in unquoted "{-" and  "-}" and the brackets too
 uncomment :: T.Text -> T.Text
-uncomment = (rmBlkCmt . rmPtLnCmt . rmWhLnCmt)
+uncomment = (rmBlkCmt . rmPrLnCmt . rmWhLnCmt)
 
 -- remove whole line comments
 rmWhLnCmt :: T.Text -> T.Text
-rmWhLnCmt rt = unlines $ filter (not $ T.ispPrefixOf "--") $ T.lines rt
+rmWhLnCmt rt = T.unlines $ filter (\x->(not . T.isPrefixOf "--")(T.stripStart x)) $ T.lines rt
 
 -- remove partial line comments
 rmPrLnCmt :: T.Text -> T.Text
-rmPrLnCmt rt = T.concat (rmPrLnCmt' [] (T.lines rt))
+rmPrLnCmt rt = T.unlines (rmPrLnCmt' [] (T.lines rt))
 
-rmPrLnCmt' :: [T.Text] -> [T.Text]
+rmPrLnCmt' :: [T.Text] -> [T.Text] -> [T.Text]
 rmPrLnCmt' acc [] = acc
 rmPrLnCmt' acc (t:ts) =
   case ((T.isInfixOf "--" t),(T.elem '"' t)) of

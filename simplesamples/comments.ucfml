@@ -1,0 +1,27 @@
+This is not a comment
+there is not commetns here either
+-- this is a full line comment
+this is not a comment " but has an unclosed quote mark
+this line -- woud have a partial line comment, but should be entirely ignored
+becaue there is no closing " so it was all quoted text
+but I closed the quote on the last line so -- this is a comment
+there is a " quotation mark here but it closes on" the same line with no comments
+this line " has an {- in " it but its quoted so it doesn't matter
+this line has an unquoted -} brackt, but theres no open comment for it to close
+this line does {- start a block comment and this comment goes on for a few lines
+before closing.  quotes can be ignored until the comment closing block
+I can open a quote in a comment like this " but if I put a -} it still closes
+the comment and this " is still and opening quote so ignore -- or {- and " closes the quote
+-- here is a collection
+-- of whole line comments
+-- because sometimes I do this instead of using the block
+so here's another simple line no quote or comment
+{- here's a block comment that starts
+   on a new line and goes on and on and
+   on and on and on and on for a few lines -}
+and this is not a special line
+          -- lets try some
+    -- some full line comments
+                             -- starting at various columns
+
+                 -- of the line
