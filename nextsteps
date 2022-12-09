@@ -1,8 +1,11 @@
-- check if the passed file exists
-
-- if it exists read it in and split it into it's 3 secctions
-
+- if given a file read it in and split it into it's 3 sections
+  - remove all comments
+  - check to see that there are only 3 lines of text that start on column 1, "Meta:", "Body:", "Template:"
+    -- if not, set ucfmlfile appmodel = ParseError "Could not identify the three sections.
+                                                   please ensure Meta, Body, and Template tags all start
+                                                   on colun one and nothing else but comments do"
 - parse meta into `UCFMLmeta`
+  look for 4 tags starting on the third column, "Title:", "About:", "Author:", "Upsream Docs"
 
 - parse body into `UCFMLbody`
 

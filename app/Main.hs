@@ -36,23 +36,22 @@ buildUI wenv model =
   case (ucfmlfile model) of
     NoFile -> label "hey you didn't pass a file in. maybe later I'll add a file select button or something."
     NotAFile -> label "hey, that's not a file"
-    RawFile t -> label t
+    RawFile t -> label_ t [multiline]
     ParseError t -> label t
     ParsedFile u -> label "file pased successfully!"
 
-
+checkFile :: (Either SomeException String) -> UCFMLFile
+checkFile (Left _) = NotAFile
+checkFile (Right s) = RawFile $ T.pack s
 
 main :: IO ()
 main = do
   args <- getArgs
--- todo
--- check if an argument was passed, if not set model to NoFile
--- check if passed argument is a real file, if not set model to NotAFile
 -- set model to RawFile until parser is finished writing then
 -- if parse failed, set model to ParseError
 -- if parse succeeded, set model to ParsedFile
-  file <- try (readFile "../ucfml/kermit.ucml")
-  startApp (AppModel NoFile) handleEvent buildUI config where
+  file <- try (readFile $ head args)
+  startApp (AppModel (checkFile file)) handleEvent buildUI config where
     config =
       [ appWindowTitle "menumatey"
       , appInitEvent AppInit

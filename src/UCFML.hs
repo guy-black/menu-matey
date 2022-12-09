@@ -43,6 +43,7 @@ data UCFMLMeta =  UCFMLmeta
     { mentitle :: UCFMLText
     , aboutmen :: UCFMLText
     , upstream :: UCFMLText
+    , author   :: UCFMLText
     } deriving (Eq, Show)
 
 data UCFMLBody = UCFMLBody [ OptType ]
