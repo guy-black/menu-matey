@@ -38,11 +38,14 @@ buildUI wenv model =
     NotAFile -> label "hey, that's not a file"
     RawFile t -> label_ t [multiline]
     ParseError t -> label t
-    ParsedFile u -> label "file pased successfully!"
+    ParsedFile u -> label "file parsed successfully!"
 
+-- something tells me I'm supposed to use a more specific type than this
+-- but I'll see how long I can ride with this until it hurts me :)
 checkFile :: (Either SomeException String) -> UCFMLFile
 checkFile (Left _) = NotAFile
 checkFile (Right s) = RawFile $ T.pack s
+-- when parser is finished, this will just pass T.pack s to bigParseFunc
 
 main :: IO ()
 main = do
