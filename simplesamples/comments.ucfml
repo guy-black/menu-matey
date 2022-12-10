@@ -23,5 +23,5 @@ and this is not a special line
           -- lets try some
     -- some full line comments
                              -- starting at various columns
-
-                 -- of the line
+"here is a big long quoted section with an \" that shouldn't be counted, just like
+-- and {- until I close with " and now -this is a comment

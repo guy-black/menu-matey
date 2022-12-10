@@ -251,6 +251,11 @@ data UCFMLFilePath = UnixStyle UCFMLText
 -- Functions for parsing raw Text
 -- ------------------------------
 
+-- new plan
+-- -- no quoted text in a ucfml model should be parsed as a symbol of any sort
+-- -- dancing around quoted bits parsing the comments is hard
+-- -- dequote whole file first before processing
+
 -- remove all user comments --
 -- ---------------------------
 -- remove any comments from the file before messing further with it
@@ -269,13 +274,55 @@ rmPrLnCmt :: T.Text -> T.Text
 rmPrLnCmt rt = T.unlines (rmPrLnCmt' [] (T.lines rt))
 
 rmPrLnCmt' :: [T.Text] -> [T.Text] -> [T.Text]
-rmPrLnCmt' acc [] = acc
+rmPrLnCmt' acc [] = reverse acc
 rmPrLnCmt' acc (t:ts) =
   case ((T.isInfixOf "--" t),(T.elem '"' t)) of
-    (True, True) -> rmPrLnCmt' acc ts -- both quotation mark(s) and line comment are in the line
-    (True, False) -> rmPrLnCmt' acc ts -- no quotation mark(s) yes line coment
-    (False, True) -> rmPrLnCmt' acc ts -- yes quotatio mark(s) no line comment
-    (False, False) -> rmPrLnCmt' acc ts -- neither quotation marks nor line comment
+    -- TODO both quotation mark(s) and line comment are in the line
+    (True, True) ->
+      case (ordering (T.length ((fst . T.breakOn "--")t))(T.length ((fst . T.breakOn "\"")t))) of
+        LT -> rmPrLnCmt' ((T.breakOn "--" t):acc) ts -- comment was first, treat as if there was only a comment
+        GT -> -- quote was first
+          -- TODO: change this to only cound non escaped quote
+          -- --  in "this is a string with a \" randomly in it"
+          -- --     ^count                    ^dont count     ^ count
+          if (T.count "\"" t) > 1 then -- there is more than one quote in the line
+            -- ignore line up through the closing quote, check the rest as regular
+          else -- there is only one unclosed quote on the line
+            -- see else case on False True
+        _ -> undefined -- should never happen
+
+    -- no quotation mark(s) yes line comment
+    (True, False) -> rmPrLnCmt' ((T.breakOn "--" t):acc) ts
+
+    -- TODO yes quotation mark(s) no line comment.
+    (False, True) ->
+
+          -- TODO: change this to only cound non escaped quote
+          -- --  in "this is a string with a \" randomly in it"
+          -- --     ^count                    ^dont count     ^ count
+      if even (T.count "\"" t) then -- all open quotes closed themselves, no comments, treat as regular line
+        rmPrLnCmt' (t:acc) ts
+      else -- if there is an unclosed quotation
+        -- add this line to the acc like any other with no comment
+        -- add all subsequent lines to acc until I find one with a closing quote
+        -- go back to regular loop ignoring up through the closing quote
+
+    -- neither quotation mark(s) nor line comment
+    (False, False) -> rmPrLnCmt' (t:acc) ts
+
+qRmPrLnCmt' :: [T.Text] -> [T.Text] -> [T.Text]
+qRmPrLnCmt' acc [] = reverse acc
+qRmPrLnCmt' acc (t:ts) =
+  -- if t contains no nonescaped " then
+    -- qRmPrLnCmt' (t:acc) ts
+  -- else if there is a nonescaped quote
+    -- if there are no quotes or -- after the closing quote then
+      -- rmPrLnCmt' (t:acc) ts
+    -- else
+      -- if the comment is first then
+        -- rmPrLnCmt' ((T.breakOn "--" t):acc) ts
+      -- else if the quote is first
+
 
 -- remove block commenta
 rmBlkCmt :: T.Text -> T.Text
