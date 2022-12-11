@@ -1,3 +1,12 @@
+
+- if given a file read it in and split it into it's 3 sections
+  - remove all comments
+  - check to see that there are only 3 lines of text that start on column 1, "Meta:", "Body:", "Template:"
+    -- if not, set ucfmlfile appmodel = ParseError "Could not identify the three sections.
+                                                   please ensure Meta, Body, and Template tags all start
+                                                   on colun one and nothing else but comments do"
+
+
 -- new idea for parsing
 dancing around quoted characters while parsing comments is tedious and annoying
 this will be even more annoying down the line as no quoted characters should be parsed
@@ -15,13 +24,6 @@ dequoteText tx = -- replace all the quotes in the text with unique tokens that t
 requoteText :: DequotedText -> Text
 requoteText (DequotedText m t) =
   -- find every unique token in t to replace with it's corresponding text in m
-
-- if given a file read it in and split it into it's 3 sections
-  - remove all comments
-  - check to see that there are only 3 lines of text that start on column 1, "Meta:", "Body:", "Template:"
-    -- if not, set ucfmlfile appmodel = ParseError "Could not identify the three sections.
-                                                   please ensure Meta, Body, and Template tags all start
-                                                   on colun one and nothing else but comments do"
 - parse meta into `UCFMLmeta`
   look for 4 tags starting on the third column, "Title:", "About:", "Author:", "Upsream Docs"
 
