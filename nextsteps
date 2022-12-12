@@ -1,35 +1,73 @@
+- parse input with fsm
+                               Line Col
+data ParserState = ParserState (Int,Int) ParserStates
 
-- if given a file read it in and split it into it's 3 sections
-  - remove all comments
-  - check to see that there are only 3 lines of text that start on column 1, "Meta:", "Body:", "Template:"
-    -- if not, set ucfmlfile appmodel = ParseError "Could not identify the three sections.
-                                                   please ensure Meta, Body, and Template tags all start
-                                                   on colun one and nothing else but comments do"
+  - states: finding and result
+    TlRead -- Reading for top layer tags
+      "--"        -> WhLnCmt +1 Ln TlRead
+      "{-"        -> OpnBlkCmt BlkCmtRead
+      "Meta:"     -> StrtRdMeta MetaRead
+      "Body:"     -> StrtRdBody BodyRead
+      "Template:" -> StrtRdTemp TempRead
+      EOF         -> EndFile    CheckRead
+      else        -> ParseError FailedSt "was expecting to find Head:, Body: Template:, instead found <found text>"
+    BlkCmtRead -- in a block comment
+      "-}" -> ClsBlkCmt CurrLnCol previousState
+      EOF  -> ParseError FailedSt "was expecting closing to a block comment"
+      else -> Nothing BlkCmtRead -- stay in block commment read mode until the close is found
+    MetaRead -- reading the meta section
+      "Title:" -> RdMetaTitle UCFMLTextRead
+      "About:" -> RdMetaAbout UCFMLTextRead
+      "Author:" -> RdMetaAuth UCFMLTextRead
+      "UpstreamDocs:" -> RdMetaAuth UCFMLTextRead
+      "Cond:" -> RdCond CondRead
+      "Condl:" -> RdCondL CondLRead
+      EOF -> EndFile CheckRead
+      _ -  > ParseError FailedSt "was expecing a Title, About, Author, or UpstreamDocs:"
+    BodyRead -- reading the body section
+      "[" -> StrtRdOpts OptionsRead
+      _   -> ParseError FailedSt
+    OptionsRead -- reading the list of options and optsections
+      "OptSection:" -> StrtRdOptSect OptSectionRead
+      "Option:"     -> SrtRdOption OptionRead
+      "]"           -> EndRdOpts previousState
+      _             -> ParseError FailedSt
+    OptSectionRead -- reading and options section
+      "Title:"   -> StrtRdOptSectTitle UCFMLTextRead
+      "About:"   -> StrtRdOptSectAbout UCFMLTextRead
+      "RefVar:"  -> StrtRdRefVar RefVarRead
+      "Options:" -> StrtRdOptionsList OptSectListStrt
+      _          -> ParseError FailedSt
+    OptSectListStrt -- reading list of options for an optsect
+      "Option:" -> StrtRdSngOpt SngOptRead
+      "]"       -> End
+    TempRead -- reading the template section
 
+    UCFMLTextRead -- reading a UCFMLText value
+      '"'       -> StrtRdQt QtTextRead
+      "RegExp:" -> StrtRdRegEx RegExpRead
+      "SedExp:" -> StrtRdSedEx SedExpRead
+      "Concat:" -> StrtConcEx  ConExRead
+      _         -> ParseError FailedSt
+    RegExpRead -- reading a RegExp tag
 
--- new idea for parsing
-dancing around quoted characters while parsing comments is tedious and annoying
-this will be even more annoying down the line as no quoted characters should be parsed
-as ucfml code or symbols
+    SedExpRead -- reading a SexExp tag
 
-keep same general parsing pipeline but first create a dequoted text
-data DequotedText = DequotedText
-    { quoText :: Map Token Text -- token to label the quote and where it will go when requoting text
-    , deqText :: Text -- Text with a special token everywhere quoted text should be in there
-    }
+    ConExRRead -- reading a concat tag
 
-dequoteText :: Text -> DequotedText
-dequoteText tx = -- replace all the quotes in the text with unique tokens that the quote will be paired with in Map
+    RefVarRead -- reading a refvar
 
-requoteText :: DequotedText -> Text
-requoteText (DequotedText m t) =
-  -- find every unique token in t to replace with it's corresponding text in m
-- parse meta into `UCFMLmeta`
-  look for 4 tags starting on the third column, "Title:", "About:", "Author:", "Upsream Docs"
-
-- parse body into `UCFMLbody`
-
-- parse template into `UCFMLtemplate`
+    QtTextRead -- reading a hard coded text value
+      '"' -> ClsQt previous state -- return the whole quoted text
+      _   -> Nothing QtTextRead
+    FailedSt -- something went wrong
+      Nothing left to do but return the error
+    SuccPars -- successfully parsed
+      Nothing left to do but return the UCFMLModel
+    CheckRead:
+      Check there is a full meta, body, and template
+        if so, SuccPars
+        if not, FailedSt
 
 - display option settings
 

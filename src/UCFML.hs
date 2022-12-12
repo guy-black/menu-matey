@@ -300,7 +300,7 @@ dequote (Dequote qto nqt) rt =
   else
     case ((length . fst . breakOn "\"")T.tail $ rst)`ordering`((length . fst . breakOn "-}")T.tail $ rst) of
       EQ -> Nothing -- unclosed quotation mark, return nothing for parse error
-      GT -> -- in a block comment, add everything up to the block closing block
+      GT -> -- in a block comment, add everything up to the block closing bloc
 
       LT -> -- is quoted text, add to map and recurse with (snd . breakOn "\"")T.tail $ rst
 
