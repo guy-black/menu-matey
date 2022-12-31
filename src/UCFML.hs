@@ -315,7 +315,10 @@ fsm sl@(RdTLT:xs) pmod lc@(ln,col) rawtxt =
 fsm sl@(EOF:_) pmod lc _ = verifyPartMod pmod
 
 -- fsm at the RdBlCmt station
-fsm sl@(RdBlCmt:xs) pmod lc@(ln,col) rawtxt = undefined
+fsm sl@(RdBlCmt:xs) pmod lc@(ln,col) rawtxt = fsm xs pmod (addWS lc cmt) rst where
+  cmt = cmt' <> (T.take 2 rst')
+  rst = T.drop 2 rst'
+  (cmt', rst') = T.breakOn "-}" rawtxt
 
 
 ----- A PROBLEM FOR FUTURE ME -----
