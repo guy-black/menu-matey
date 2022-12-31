@@ -24,6 +24,7 @@ module UCFML {-( UCFMLFile (..)
              , UCFMLExpr (..) )-} where
 
 import qualified Data.Text as T
+import Data.Char
 
 -- ----------------------------
 -- types for representing UCFML
@@ -44,7 +45,7 @@ data UCFMLModel = UCFMLModel
     , template :: UCFMLTemplate
     } deriving (Eq, Show)
 
-data UCFMLMeta =  UCFMLmeta
+data UCFMLMeta =  UCFMLMeta
     { mentitle :: UCFMLText
     , aboutmen :: UCFMLText
     , upstream :: UCFMLText
@@ -265,7 +266,7 @@ emptyMeta :: UCFMLMeta
 emptyMeta = UCFMLMeta UnsetT UnsetT UnsetT UnsetT
 
 emptyBody :: UCFMLBody
-emptyBody  UCFMLBody []
+emptyBody = UCFMLBody []
 
 emptyTemp :: UCFMLTemplate
 emptyTemp = UCFMLTemplate []
@@ -288,22 +289,53 @@ fsm [] _ _ _ = ParseError "somehow fsm got an empty [FsmStates]"
 fsm sl@(RdTLT:xs) pmod lc@(ln,col) rawtxt =
   if T.null rawtxt then                      -- if end of file
     fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
-  else if (isSpace T.head $ rawtxt) then     -- if it start with white space
+
+  else if (isSpace $ T.head rawtxt) then     -- if it start with white space
     let (ws,rst) = T.span isSpace rawtxt in  -- then update lc and recurse
       fsm sl pmod (addWS lc ws) rst
+
   else if ("{-" `T.isPrefixOf` rawtxt) then -- open block comment
-    fsm (RdBlCmt:sl) pmod (ln,(col+2))
+    fsm (RdBlCmt:sl) pmod (ln,(col+2)) (T.drop 2 rawtxt)
+
   else if ("--" `T.isPrefixOf` rawtxt) then -- handle single line comment this time I already know I'm not in a quote so no worries
-    fsm sl pmod ((ln+1),0) (T.Unlines (tail (T.Lines rawtxt))) -- inc ln, 0 col, pick up again at next line
-  else if () -- checking for tags now
+    fsm sl pmod ((ln+1),0) (T.unlines (tail (T.lines rawtxt))) -- inc ln, 0 col, pick up again at next line
+
+  else if ("Meta:" `T.isPrefixOf` rawtxt) then
+    fsm (RdMeta :sl) pmod (ln,(col+5)) (T.drop 5 rawtxt)
+
+  else if ("Body:" `T.isPrefixOf` rawtxt) then
+    fsm (RdBody:sl) pmod (ln,(col+5)) (T.drop 5 rawtxt)
+
+  else if ("Template:" `T.isPrefixOf` rawtxt) then
+    fsm (RdTemp:sl) pmod (ln,(col+9)) (T.drop 9 rawtxt)
+
+  else ParseError $ "Was expecting either a top level tag, but thats not what I found at " <> (T.pack . show) lc
+
 -- fsm at the EOF station
 fsm sl@(EOF:_) pmod lc _ = verifyPartMod pmod
 
 -- fsm at the RdBlCmt station
-fsm sl@(RdBlCmt:xs) pmod lc@(ln,col) rawtxt =
+fsm sl@(RdBlCmt:xs) pmod lc@(ln,col) rawtxt = undefined
 
 
-addWS :: ()
+----- A PROBLEM FOR FUTURE ME -----
+-- I'm counting /t as as single column here because wsedit counts them
+-- later this might cause problems with reporting the exact column where an error is found
+-- but the line should be right still, I will need to test this on different editors to see
+-- how they handle tabs and column counts.  For now I will make a note to mention exact col
+-- may be a bit off on error reports
+---- END PROBLEM FOR FUTURE ME ----
+-- update a (ln, col) after a chunk of white space
+addWS :: (Int, Int) -> T.Text -> (Int, Int)
+addWS (ln, col) ws =
+  if (T.null . T.filter ('\n'==)) ws then -- if there are no \n in ws
+    (ln,col+(T.length ws)) -- preserve ln and increase col by length ws
+  else                    -- if there is at least  \n
+    (ln+nl,ncol) where   -- increse ln by number of newlines and set col to length of everything after last newline
+      nl = T.length $ T.filter ('\n'==) ws
+      ncol = T.length $ T.takeWhileEnd ('\n'/=) ws
+
 
 -- make sure that it's a valid UCFMLModel and give an error if it's not
 verifyPartMod :: UCFMLModel -> UCFMLFile
+verifyPartMod = undefined
