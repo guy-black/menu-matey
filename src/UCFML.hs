@@ -378,6 +378,9 @@ textgenfsm lc@(ln,col) rawtxt =
   else
   -- I just remembered that I have to handle conditionals basically everywhere except inside quoted text or comments
   -- ughhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+  -- okay so really I only have to add it to RdTLT and RdMeta and textgenfsm
+  -- and then remembere to account for it in every other thing I add
+  -- smaller ughhhhhhhh
 
 findCloseQuote :: T.Text -> T.Text -> Maybe (T.Text, T.Text)
 findCloseQuote acc txt =
