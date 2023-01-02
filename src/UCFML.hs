@@ -304,6 +304,9 @@ fsm sl@(RdTLT:xs) pmod lc@(ln,col) rawtxt =
   else if ("--" `T.isPrefixOf` rawtxt) then -- handle single line comment this time I already know I'm not in a quote so no worries
     fsm sl pmod ((ln+1),0) (T.unlines (tail (T.lines rawtxt))) -- inc ln, 0 col, pick up again at next line
 
+  else if ("Cond:" `T.isPrefixOf` rawtxt) then
+    -- TODO: FILL THIS IN
+
   else if ("Meta:" `T.isPrefixOf` rawtxt) then
     fsm (RdMeta :sl) pmod (ln,(col+5)) (T.drop 5 rawtxt)
 
@@ -339,6 +342,9 @@ fsm sl@(RdMeta:xs) pmod lc@(ln,col) rawtxt =
   else if ("--" `T.isPrefixOf` rawtxt) then -- handle single line comment this time I already know I'm not in a quote so no worries
     fsm sl pmod ((ln+1),0) (T.unlines (tail (T.lines rawtxt))) -- inc ln, 0 col, pick up again at next line
 
+  else if ("Cond" `T.isPrefixOf` rawtxt) then -- handle a conditional
+    undefined -- TODO : THIS
+
   else if ("Title:" `T.isPrefixOf` rawtxt) then -- handle a Title: tag
     let
       rawtxt' = T.drop 6 rawtxt
@@ -359,9 +365,11 @@ textgenfsm :: (Int, Int) -> T.Text -> ((Int, Int), Either (UCFMLText, T.Text) T.
 textgenfsm lc@(ln,col) rawtxt =
   if T.null rawtxt then  -- if the text is empty
     (lc, Left (UnsetT, rawtxt))   -- then return an unset UCFMLText
+
   else if isSpace $ T.head rawtxt then -- if it starts with whitespace char
     let (ws,rst) = T.span isSpace rawtxt in -- then trim update lc and go on
       textgenfsm (addWS lc ws) rst
+
   else if T.head rawtxt == '"' then -- opening a quote, read up until next " as Resolved
     let                             -- look for next " that is NOT preceded by \
       rawquo = T.drop 1 rawtxt
@@ -373,9 +381,16 @@ textgenfsm lc@(ln,col) rawtxt =
             (nln, ncol) = addWS lc quot
         Nothing ->
           (lc, Right "could not find closing \" for \" at")
+
   else if "Concat:" `T.isPrefixOf` rawtxt then -- if it's a concat
+
   else if "SedExp:" `T.isPrefixOf` rawtxt then -- if it's a sedExp
-  else
+
+  else if "Cond:" `T.isPrefixOf` rawtxt then -- handle the conditional
+
+  else -- this isn't a quoted text, white space, EOF, SedExp, Concat, or Cond.
+    (lc, Left (UnsetT, rawtxt))   -- then return an unset UCFMLText
+
   -- I just remembered that I have to handle conditionals basically everywhere except inside quoted text or comments
   -- ughhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
   -- okay so really I only have to add it to RdTLT and RdMeta and textgenfsm
