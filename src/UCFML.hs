@@ -213,6 +213,7 @@ data UCFMLOperator = Add
                    | IntDiv
                    | RemDiv
                    | Exp
+                   | UnsetO
                    deriving (Eq, Show)
 
 data UCFMLComparison = EQ
@@ -221,6 +222,7 @@ data UCFMLComparison = EQ
                      | LT
                      | GTE
                      | LTE
+                     | UnsetC
                      deriving (Eq, Show)
 
 data UCFMLGate = AND
@@ -239,6 +241,7 @@ data UCFMLGate = AND
                | NLNTR
                | RNOTL
                | NRNTL
+               | UnsetG
                deriving (Eq, Show)
 
 data UCFMLTemplate = UCFMLTemplate [ UCFMLConFile ] deriving (Eq, Show)
@@ -251,6 +254,7 @@ data UCFMLConFile = UCFMLConFile
 
 data UCFMLFilePath = UnixStyle UCFMLText
                    | WinStyle UCFMLText
+                   | UnsetFP
                    deriving (Eq, Show)
 
 -- -----------------
@@ -320,6 +324,71 @@ fsm sl@(RdBlCmt:xs) pmod lc@(ln,col) rawtxt = fsm xs pmod (addWS lc cmt) rst whe
   rst = T.drop 2 rst'
   (cmt', rst') = T.breakOn "-}" rawtxt
 
+-- fsm at the RdMeta station
+fsm sl@(RdMeta:xs) pmod lc@(ln,col) rawtxt =
+  if T.null rawtxt then                      -- if end of file
+    fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
+
+  else if (isSpace $ T.head rawtxt) then     -- if it start with white space
+    let (ws,rst) = T.span isSpace rawtxt in  -- then update lc and recurse
+      fsm sl pmod (addWS lc ws) rst
+
+  else if ("{-" `T.isPrefixOf` rawtxt) then -- open block comment
+    fsm (RdBlCmt:sl) pmod (ln,(col+2)) (T.drop 2 rawtxt)
+
+  else if ("--" `T.isPrefixOf` rawtxt) then -- handle single line comment this time I already know I'm not in a quote so no worries
+    fsm sl pmod ((ln+1),0) (T.unlines (tail (T.lines rawtxt))) -- inc ln, 0 col, pick up again at next line
+
+  else if ("Title:" `T.isPrefixOf` rawtxt) then -- handle a Title: tag
+    let
+      rawtxt' = T.drop 6 rawtxt
+      lc' = (ln, (col))
+      (newlc, textorerror) = textgenfsm
+    in
+      case textorerror of
+        Left (uctxt, rst) ->
+          fsm sl newpmod newlc rst where
+            newpmod = pmod {meta = newmeta}
+            newmeta = (meta pmod) { title = (uctxt) }
+        Right error -> ParseError $ error <> (T.pack . show) newlc
+  else undefined
+
+-- in goes doc coords and the rawtxt
+-- out comes new doc coords and either the UCFMLText and the rest of the text, or an error
+textgenfsm :: (Int, Int) -> T.Text -> ((Int, Int), Either (UCFMLText, T.Text) T.Text)
+textgenfsm lc@(ln,col) rawtxt =
+  if T.null rawtxt then  -- if the text is empty
+    (lc, Left (UnsetT, rawtxt))   -- then return an unset UCFMLText
+  else if isSpace $ T.head rawtxt then -- if it starts with whitespace char
+    let (ws,rst) = T.span isSpace rawtxt in -- then trim update lc and go on
+      textgenfsm (addWS lc ws) rst
+  else if T.head rawtxt == '"' then -- opening a quote, read up until next " as Resolved
+    let                             -- look for next " that is NOT preceded by \
+      rawquo = T.drop 1 rawtxt
+      mcquo = findClosedQuote "" rawquo
+    in
+      case mcquo of
+        Just (quot, rst) ->
+          ((nln, ncol + 1), Left ((Resolved quot) rst)) where
+            (nln, ncol) = addWS lc quot
+        Nothing ->
+          (lc, Right "could not find closing \" for \" at")
+  else if "Concat:" `T.isPrefixOf` rawtxt then -- if it's a concat
+  else if "SedExp:" `T.isPrefixOf` rawtxt then -- if it's a sedExp
+  else
+  -- I just remembered that I have to handle conditionals basically everywhere except inside quoted text or comments
+  -- ughhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+
+findCloseQuote :: T.Text -> T.Text -> Maybe (T.Text, T.Text)
+findCloseQuote acc txt =
+  if T.null txt then -- if no closing quote is found
+    Nothing
+  else if T.head txt = '\' then -- if the next letter is an escape character
+    findCloseQuote (acc <> T.take 2 txt) (T.drop 2 txt)
+  else if T.head txt = '"' then
+    Just (acc, (T.Drop 1 txt))
+  else
+    findCloseQuote (acc <> T.take 1 txt) (T.drop 1 txt)
 
 ----- A PROBLEM FOR FUTURE ME -----
 -- I'm counting /t as as single column here because wsedit counts them
@@ -340,5 +409,6 @@ addWS (ln, col) ws =
 
 
 -- make sure that it's a valid UCFMLModel and give an error if it's not
+-- check to make sure none of the Unset_ values are used
 verifyPartMod :: UCFMLModel -> UCFMLFile
 verifyPartMod = undefined
