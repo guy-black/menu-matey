@@ -1,27 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-             -- TODO, make sure to only export what's needed
-module UCFML {-( UCFMLFile (..)
-             , UCFMLModel
-             , UCFMLMeta
-             , UCFMLBody
-             , OptType (..)
-             , OptSect
-             , Option
-             , Input (..)
-             , FixedSetIn
-             , FixedSetOpt
-             , TextInput
-             , NumbInput
-             , ListIn
-             , CompIn
-             , Validator
-             , UCFMLBool (..)
-             , UCFMLNum (..)
-             , UCFMLOperator (..)
-             , UCFMLComparison (..)
-             , UCFMLGate (..)
-             , UCFMLExpr (..) )-} where
+-- TODO, make sure to only export what's needed
+module UCFML where
 
 import qualified Data.Text as T
 import Data.Char
@@ -29,6 +9,9 @@ import Data.Char
 -- ----------------------------
 -- types for representing UCFML
 -- ----------------------------
+
+-- data type for representing a conditionally selected bit of UCFML
+data Cond a = Cond [(UCFMLBool, a)]
 
 -- data type to represent whether or not a file was passed as an argument, if that
 -- file can be read, and if that file can be parsed into a UCFMLModel
@@ -39,47 +22,51 @@ data UCFMLFile = NoFile -- no file was passed as an argument
                | ParsedFile UCFMLModel -- file parsed succesfully
                deriving (Eq, Show)
 
-data UCFMLModel = UCFMLModel
-    { meta     :: UCFMLMeta
-    , body     :: UCFMLBody
-    , template :: UCFMLTemplate
+data UCFMLModel = Cond UCFMLStruct
+
+data UCFMLStruct = UCFMLStruct
+    { meta     :: Cond UCFMLMeta
+    , body     :: Cond UCFMLBody
+    , template :: Cond UCFMLTemplate
     } deriving (Eq, Show)
 
 data UCFMLMeta =  UCFMLMeta
-    { mentitle :: UCFMLText
-    , aboutmen :: UCFMLText
-    , upstream :: UCFMLText
-    , author   :: UCFMLText
+    { mentitle :: Cond UCFMLText
+    , aboutmen :: Cond UCFMLText
+    , upstream :: Cond UCFMLText
+    , author   :: Cond UCFMLText
     } deriving (Eq, Show)
 
-data UCFMLBody = UCFMLBody [ OptType ]
+data UCFMLBody = CondBody (Cond [ Cond OptType ]) -- for either a single determined list of OptTypes
+                                                  -- or a Cond list of possible lists of OptTypes
+               | CondLBody (Cond [ Cond OpType])  -- for a CondL list of possible OptTypes with their condition
                deriving (Eq, Show)
 
-data OptType = Single Option
-             | Several OptSect
+data OptType = Single  Cond Option
+             | Several Cond OptSect
              deriving (Eq, Show)
 
 data OptSect = OptSect
-    { sectitle :: UCFMLText
-    , aboutsec :: UCFMLText
-    , options  :: [ Option ]
+    { sectitle :: Cond UCFMLText
+    , aboutsec :: Cond UCFMLText
+    , options  :: Cond [ Cond Option ]
     } deriving (Eq, Show)
 
 data Option = Option
-    { optitle :: UCFMLText
-    , aboutop :: UCFMLText
-    , refvar  :: UCFMLText -- needs to be UCFMLText because the refVar of an option needs
-                           -- to be able to be set programmatically by forEach
-    , input   :: Input
+    { optitle :: Cond UCFMLText
+    , aboutop :: Cond UCFMLText
+    , refvar  :: Cond UCFMLText -- needs to be UCFMLText because the refVar of an option needs
+                                -- to be able to be set programmatically by forEach
+    , input   :: Cond Input
     } deriving (Eq, Show)
 
-data Input = Dropdown FixedSetIn
-           | Checkbox FixedSetIn
-           | RadiButt FixedSetIn
-           | Textual  TextInput
-           | Numeric  NumbInput
-           | Listed   ListIn Input
-           | Compound CompIn Input
+data Input = Dropdown Cond FixedSetIn
+           | Checkbox Cond FixedSetIn
+           | RadiButt Cond FixedSetIn
+           | Textual  Cond TextInput
+           | Numeric  Cond NumbInput
+           | Listed   Cond ListIn Input
+           | Compound Cond CompIn Input
            deriving (Eq, Show)
 
 data FixedSetIn = FixedSetIn
@@ -305,7 +292,7 @@ fsm sl@(RdTLT:xs) pmod lc@(ln,col) rawtxt =
     fsm sl pmod ((ln+1),0) (T.unlines (tail (T.lines rawtxt))) -- inc ln, 0 col, pick up again at next line
 
   else if ("Cond:" `T.isPrefixOf` rawtxt) then
-    -- TODO: FILL THIS IN
+    fsm (RdCond:sl) pmod (ln,(col + 5)) (T.drop 5 rawtxt)
 
   else if ("Meta:" `T.isPrefixOf` rawtxt) then
     fsm (RdMeta :sl) pmod (ln,(col+5)) (T.drop 5 rawtxt)
