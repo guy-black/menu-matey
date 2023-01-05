@@ -302,6 +302,13 @@ fsm sl@(RdTLT:xs) pmod lc@(ln,col) rawtxt =
   else if ("Template:" `T.isPrefixOf` rawtxt) then
     fsm (RdTemp:sl) pmod (ln,(col+9)) (T.drop 9 rawtxt)
 
+  else if ("Define:" `T.isPrefixOf` rawtxt) then
+    -- read the definition and load it into the map
+    -- also I should adjust the spec to allow you to specify a type
+    -- well "type", else default to reading it as a Bool if it's literally "True" or "False"
+    -- a number if it'a all digits except for maybe a preceding - or . in the middle
+    -- or text otherwise
+
   else ParseError $ "Was expecting either a top level tag, but thats not what I found at " <> (T.pack . show) lc
 
 -- fsm at the EOF station
