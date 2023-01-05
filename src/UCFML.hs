@@ -11,7 +11,8 @@ import Data.Char
 -- ----------------------------
 
 -- data type for representing a conditionally selected bit of UCFML
-data Cond a = Cond [(UCFMLBool, a)]
+data Cond a = CondS [(UCFMLBool, a)] -- cond that resolves to single value
+            | CondL [(UCFMLBool, a)] -- condL that resolves to list of values
 
 -- data type to represent whether or not a file was passed as an argument, if that
 -- file can be read, and if that file can be parsed into a UCFMLModel
@@ -22,12 +23,11 @@ data UCFMLFile = NoFile -- no file was passed as an argument
                | ParsedFile UCFMLModel -- file parsed succesfully
                deriving (Eq, Show)
 
-data UCFMLModel = Cond UCFMLStruct
-
-data UCFMLStruct = UCFMLStruct
+data UCFMLModel = UCFMLModel
     { meta     :: Cond UCFMLMeta
     , body     :: Cond UCFMLBody
     , template :: Cond UCFMLTemplate
+    , optMap   :: Map Text UCFMLVal
     } deriving (Eq, Show)
 
 data UCFMLMeta =  UCFMLMeta
@@ -37,9 +37,7 @@ data UCFMLMeta =  UCFMLMeta
     , author   :: Cond UCFMLText
     } deriving (Eq, Show)
 
-data UCFMLBody = CondBody (Cond [ Cond OptType ]) -- for either a single determined list of OptTypes
-                                                  -- or a Cond list of possible lists of OptTypes
-               | CondLBody (Cond [ Cond OpType])  -- for a CondL list of possible OptTypes with their condition
+data UCFMLBody = Cond [ Cond OptType ]
                deriving (Eq, Show)
 
 data OptType = Single  Cond Option
@@ -70,34 +68,34 @@ data Input = Dropdown Cond FixedSetIn
            deriving (Eq, Show)
 
 data FixedSetIn = FixedSetIn
-    { optlist  :: [ FixedSetOpt ]
-    , minSel   :: Maybe Int -- these are the only real "validator" associated with checkbox, dropdown, or radio button inputs
-    , maxSel   :: Maybe Int -- if no min or max selected options required then set both to Nothing, otherwise set to Just whateve the limit is
+    { optlist  :: Cond [ Cond FixedSetOpt ]
+    , minSel   :: Cond UCFMLNum -- these are the only real "validator" associated with checkbox, dropdown, or radio button inputs
+    , maxSel   :: Cond UCFMLNum -- if no min or max selected options required then set both to Nothing, otherwise set to Just whateve the limit is
     } deriving (Eq, Show)
 
 data FixedSetOpt = FixedSetOpt
-    { isdef :: UCFMLBool -- whether this option is selected by default
-    , ext   :: UCFMLText -- user facing text associated with the value
-    , int   :: UCFMLText -- internal text asscociated with the value
+    { isdef :: Bool      -- whether this option is selected by default
+    , ext   :: Cond (UCFMLText) -- user facing text associated with the value
+    , int   :: Cond (UCFMLText) -- internal text asscociated with the value
     } deriving (Eq, Show)
 
 data TextInput = TextInput
-    { timinLn     :: Maybe Int -- Just the minimum number of character, or Nothing for no minimumm
-    , timaxLn     :: Maybe Int -- Just the maximum number of character, or Nothing for no maximumm
-    , tireqd      :: UCFMLBool -- whether or not there needs to be a valid value to generate a file
-    , tidef       :: UCFMLText -- the text to be used by default
-    , tivali      :: [ Validator]
+    { timinLn     :: Cond UCFMLNum -- Just the minimum number of character, or Nothing for no minimumm
+    , timaxLn     :: Cond UCFMLNum -- Just the maximum number of character, or Nothing for no maximumm
+    , tireqd      :: Cond UCFMLBool -- whether or not there needs to be a valid value to generate a file
+    , tidef       :: Cond UCFMLText -- the text to be used by default
+    , tivali      :: Cond [ Cond Validator]
     } deriving (Eq, Show)
 
 data NumbInput = NumbInput
-    { floating  :: UCFMLBool
-    , signed    :: UCFMLBool
-    , lrange    :: Maybe UCFMLNum
-    , urange    :: Maybe UCFMLNum
-    , base      :: NumBase
-    , nireqd    :: Bool
-    , nidef     :: Maybe UCFMLNum
-    , nivali    :: [ Validator ]
+    { floating  :: Cond UCFMLBool
+    , signed    :: Cond UCFMLBool
+    , lrange    :: Cond UCFMLNum
+    , urange    :: Cond UCFMLNum
+    , base      :: Cond NumBase
+    , nireqd    :: Cond UCFMLBool
+    , nidef     :: Cond UCFMLNum
+    , nivali    :: Cond [ Cond Validator ]
     } deriving (Eq, Show)
 
 data NumBase = Binary
@@ -107,10 +105,10 @@ data NumBase = Binary
              deriving (Eq, Show)
 
 data ListIn = ListIn
-    { liminLn :: Maybe Int -- Nothing for no minimum or Just minimum for the minimum list length
-    , limaxLn :: Maybe Int -- Nothing for no maximum or Just maximum for maximum length
-    , lidef   :: [ UCFMLVal ]
-    , liinput   :: Input
+    { liminLn :: Cond UCFMLNum -- Nothing for no minimum or Just minimum for the minimum list length
+    , limaxLn :: Cond UCFMLNum -- Nothing for no maximum or Just maximum for maximum length
+    , lidef   :: Cond UCFMLVal -- can either be a Cond [UCFMLVal] or a CondL UCFMLVal
+    , liinput :: Cond Input
     } deriving (Eq, Show)
 
 data UCFMLVal = UBool UCFMLBool
@@ -119,13 +117,14 @@ data UCFMLVal = UBool UCFMLBool
               | UGate UCFMLGate
               | UOp   UCFMLOperator
               | UComp UCFMLComparison
+              | UList [UCFMLVal]
               deriving (Eq, Show)
 
-data CompIn = CompIn [(UCFMLText, Input )] -- [ (label, input) ]
+data CompIn = CompIn Cond [Cond (Cond UCFMLText, Cond Input)] -- [ (label, input) ]
             deriving (Eq, Show)
 
-data Validator = MustBe UCFMLBool
-               | MustNot UCFMLBool
+data Validator = MustBe (Cond UCFMLBool)
+               | MustNot (Cond UCFMLBool)
                deriving (Eq, Show)
 
 data UCFMLBool = UnsetB
