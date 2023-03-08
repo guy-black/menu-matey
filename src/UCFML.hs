@@ -4,15 +4,12 @@
 module UCFML where
 
 import qualified Data.Text as T
+import qualified Data.Map as M
 import Data.Char
 
 -- ----------------------------
 -- types for representing UCFML
 -- ----------------------------
-
--- data type for representing a conditionally selected bit of UCFML
-data Cond a = CondS [(UCFMLBool, a)] -- cond that resolves to single value
-            | CondL [(UCFMLBool, a)] -- condL that resolves to list of values
 
 -- data type to represent whether or not a file was passed as an argument, if that
 -- file can be read, and if that file can be parsed into a UCFMLModel
@@ -24,91 +21,94 @@ data UCFMLFile = NoFile -- no file was passed as an argument
                deriving (Eq, Show)
 
 data UCFMLModel = UCFMLModel
-    { dict     :: Map Text UCFMLVal
-    , meta     :: Cond UCFMLMeta
-    , body     :: Cond UCFMLBody
-    , template :: Cond UCFMLTemplate
+    { dict     :: M.Map T.Text UCFMLVal
+    , meta     :: UCFMLMeta
+    , body     :: UCFMLBody
+    , template :: UCFMLTemplate
     } deriving (Eq, Show)
 
 data UCFMLMeta =  UCFMLMeta
-    { mentitle :: Cond UCFMLText
-    , aboutmen :: Cond UCFMLText
-    , upstream :: Cond UCFMLText
-    , author   :: Cond UCFMLText
+    { mentitle :: UCFMLText
+    , aboutmen :: UCFMLText
+    , upstream :: UCFMLText
+    , author   :: UCFMLText
     } deriving (Eq, Show)
 
-data UCFMLBody = Cond [ Cond OptType ]
+data UCFMLBody = UCFMLList OptType
                deriving (Eq, Show)
 
-data OptType = Single  Cond Option
-             | Several Cond OptSect
+data OptType = Single  Option
+             | Several OptSect
+             | CondOpt OptType
              deriving (Eq, Show)
 
 data OptSect = OptSect
-    { sectitle :: Cond UCFMLText
-    , aboutsec :: Cond UCFMLText
-    , options  :: Cond [ Cond Option ]
+    { sectitle :: UCFMLText
+    , aboutsec :: UCFMLText
+    , options  :: UCFMLList Option
     } deriving (Eq, Show)
 
 data Option = Option
-    { optitle :: Cond UCFMLText
-    , aboutop :: Cond UCFMLText
-    , refvar  :: Cond UCFMLText -- needs to be UCFMLText because the refVar of an option needs
+    { optitle :: UCFMLText
+    , aboutop :: UCFMLText
+    , refvar  :: UCFMLText -- needs to be UCFMLText because the refVar of an option needs
                                 -- to be able to be set programmatically by forEach
-    , input   :: Cond Input
+    , input   :: Input
     } deriving (Eq, Show)
 
-data Input = Dropdown Cond FixedSetIn
-           | Checkbox Cond FixedSetIn
-           | RadiButt Cond FixedSetIn
-           | Textual  Cond TextInput
-           | Numeric  Cond NumbInput
-           | Listed   Cond ListIn Input
-           | Compound Cond CompIn Input
+data Input = Dropdown FixedSetIn
+           | Checkbox FixedSetIn
+           | RadiButt FixedSetIn
+           | Textual  TextInput
+           | Numeric  NumbInput
+           | Listed   ListIn Input
+           | Compound CompIn Input
+           | CondIn   Input
            deriving (Eq, Show)
 
 data FixedSetIn = FixedSetIn
-    { optlist  :: Cond [ Cond FixedSetOpt ]
-    , minSel   :: Cond UCFMLNum -- these are the only real "validator" associated with checkbox, dropdown, or radio button inputs
-    , maxSel   :: Cond UCFMLNum -- if no min or max selected options required then set both to Nothing, otherwise set to Just whateve the limit is
+    { optlist  :: UCFMLList FixedSetOpt
+    , minSel   :: UCFMLNum -- these are the only real
+    , maxSel   :: UCFMLNum -- "validator" for fixed set inputs
     } deriving (Eq, Show)
 
 data FixedSetOpt = FixedSetOpt
-    { isdef :: Bool      -- whether this option is selected by default
-    , ext   :: Cond (UCFMLText) -- user facing text associated with the value
-    , int   :: Cond (UCFMLText) -- internal text asscociated with the value
+    { isdef :: Bool             -- whether this option is selected by default
+    , ext   :: UCFMLText -- user facing text associated with the value
+    , int   :: UCFMLText -- internal text asscociated with the value
     } deriving (Eq, Show)
 
 data TextInput = TextInput
-    { timinLn     :: Cond UCFMLNum -- Just the minimum number of character, or Nothing for no minimumm
-    , timaxLn     :: Cond UCFMLNum -- Just the maximum number of character, or Nothing for no maximumm
-    , tireqd      :: Cond UCFMLBool -- whether or not there needs to be a valid value to generate a file
-    , tidef       :: Cond UCFMLText -- the text to be used by default
-    , tivali      :: Cond [ Cond Validator]
+    { timinLn   :: UCFMLNum -- Just the minimum number of character, or Nothing for no minimumm
+    , timaxLn   :: UCFMLNum -- Just the maximum number of character, or Nothing for no maximumm
+    , tireqd    :: UCFMLBool -- whether or not there needs to be a valid value to generate a file
+    , tidef     :: UCFMLText -- the text to be used by default
+    , tivali    :: UCFMLList Validator
     } deriving (Eq, Show)
 
 data NumbInput = NumbInput
-    { floating  :: Cond UCFMLBool
-    , signed    :: Cond UCFMLBool
-    , lrange    :: Cond UCFMLNum
-    , urange    :: Cond UCFMLNum
-    , base      :: Cond NumBase
-    , nireqd    :: Cond UCFMLBool
-    , nidef     :: Cond UCFMLNum
-    , nivali    :: Cond [ Cond Validator ]
+    { floating  :: UCFMLBool
+    , signed    :: UCFMLBool
+    , lrange    :: UCFMLNum
+    , urange    :: UCFMLNum
+    , base      :: NumBase
+    , nireqd    :: UCFMLBool
+    , nidef     :: UCFMLNum
+    , nivali    :: UCFMLList Validator
     } deriving (Eq, Show)
 
 data NumBase = Binary
              | Octal
              | Decimal
              | Hexadecimal
+             | CondBase Numbase
              deriving (Eq, Show)
 
 data ListIn = ListIn
-    { liminLn :: Cond UCFMLNum -- Nothing for no minimum or Just minimum for the minimum list length
-    , limaxLn :: Cond UCFMLNum -- Nothing for no maximum or Just maximum for maximum length
-    , lidef   :: Cond UCFMLVal -- can either be a Cond [UCFMLVal] or a CondL UCFMLVal
-    , liinput :: Cond Input
+    { liminLn :: UCFMLNum -- Nothing for no minimum or Just minimum for the minimum list length
+    , limaxLn :: UCFMLNum -- Nothing for no maximum or Just maximum for maximum length
+    , lidef   :: UCFMLVal -- can either be a Cond [UCFMLVal] or a CondL UCFMLVal
+    , liinput :: Input
     } deriving (Eq, Show)
 
 data UCFMLVal = UBool UCFMLBool
@@ -117,14 +117,14 @@ data UCFMLVal = UBool UCFMLBool
               | UGate UCFMLGate
               | UOp   UCFMLOperator
               | UComp UCFMLComparison
-              | UList [UCFMLVal]
+              | UList UCFMLList UCFMLVal
               deriving (Eq, Show)
 
-data CompIn = CompIn Cond [Cond (Cond UCFMLText, Cond Input)] -- [ (label, input) ]
+data CompIn = CompIn UCFMLList ( UCFMLText, Input ) -- [ (label, input) ]
             deriving (Eq, Show)
 
-data Validator = MustBe (Cond UCFMLBool)
-               | MustNot (Cond UCFMLBool)
+data Validator = MustBe (UCFMLBool)
+               | MustNot (UCFMLBool)
                deriving (Eq, Show)
 
 data UCFMLBool = UnsetB
@@ -141,9 +141,13 @@ data UCFMLNum = UnsetN
               deriving (Eq, Show)
 
 data UCFMLText = UnsetT
-               | Resolved T.Text
+               | ResolvedT T.Text
                | UnresolvedT UCFMLTextExpr
                deriving (Eq, Show)
+
+data UCFMLList a = ResolvedL [a]
+                 | Unresolved UCFMLListExpr
+                 | CondL UCFMLList (UCFMLBool, a)
 
 data UCFMLExpr = BoolGen UCFMLBoolExpr
                | NumGen UCFMLNumExpr
@@ -157,29 +161,29 @@ data UCFMLBoolExpr = RegExp UCFMLRegExp
                    deriving (Eq, Show)
 
 data UCFMLRegExp = UCFMLRegExp
-    { source :: Cond UCFMLText
-    , regex  :: Cond UCFMLText -- ?? idk maybe a better type for this ??
+    { source :: UCFMLText
+    , regex  :: UCFMLText -- ?? idk maybe a better type for this ??
     } deriving (Eq, Show)
 
 data UCFMLBoolLog = UCFMLBoolLog
-    { blleft  :: Cond UCFMLBool
-    , gate    :: Cond UCFMLGate
-    , blright :: Cond UCFMLBool
+    { blleft  :: UCFMLBool
+    , gate    :: UCFMLGate
+    , blright :: UCFMLBool
     } deriving (Eq, Show)
 
 data UCFMLBoolComp = UCFMLBoolComp
-    { bcleft  :: Cond UCFMLNum
-    , comp    :: Cond UCFMLComparison
-    , bcright :: Cond UCFMLNum
+    { bcleft  :: UCFMLNum
+    , comp    :: UCFMLComparison
+    , bcright :: UCFMLNum
     } deriving (Eq, Show)
 
 data UCFMLNumExpr = Arith NumExpr
-                  | Length GenLenth
+                  | Length GenLength
 
 data NumExpr = NumExpr
-    { neleft  :: Cond UCFMLNum
-    , op      :: Cond UCFMLOperator
-    , neright :: Cond UCFMLNum
+    { neleft  :: UCFMLNum
+    , op      :: UCFMLOperator
+    , neright :: UCFMLNum
     } deriving (Eq, Show)
 
 data GenLength = TextLn UCFMLText
@@ -200,10 +204,10 @@ data UCFMLConcat = UCFMLConcat
     } deriving (Eq, Show)
 
 -- repeat inset reverse foreach
-data UCFMLListExpr = RepeatLiExp ListRepeat
-                   | InsetLiExp ListInset
-                   | ForEachLiExp ListForeach
-                   | ReverseLiExp [ UCFMLVal ]
+data UCFMLListExpr = RepeatLiExp  -- ListRepeat
+                   | CombineLiExp -- ListInset
+                   | ForEachLiExp -- ListForeach
+                   | ReverseLiExp -- [ UCFMLVal ]
 
 data UCFMLOperator = Add
                    | Sub
@@ -310,7 +314,7 @@ fsm [] pmod lc' rt' =
     else if ("Template:" `T.isPrefixOf` rawtxt) then
       fsm (RdTemp:sl) pmod (ln,(col+9)) (T.drop 9 rawtxt)
 
-    else ParseError $ "Was expecting either a top level tag, comment, or whitespace, but thats not what I found at " <> (T.pack . show) lc
+    else ParseError $ "expected either Dictionary: Meta: Body: or Template: at " <> showt lc
 
 -- fsm at the EOF station
 fsm sl@(EOF:_) pmod lc _ = verifyPartMod pmod
@@ -324,6 +328,9 @@ fsm sl@(RdMeta:xs) pmod lc' rt' =
     else if ("Title:" `T.isPrefixOf` rawtxt) then -- handle a Title: tag
       undefined
 
+    else
+      undefined
+
 
 skipWsCom :: (Int, Int) -> T.Text -> ((Int, Int), T.Text)
 skipWsCom ls@(ln, col) rawtxt =
@@ -331,13 +338,17 @@ skipWsCom ls@(ln, col) rawtxt =
     let (ws,rst) = T.span isSpace rawtxt in  -- then update lc and recurse
       ((addWS lc ws), rst)
   else if ("{-" `T.isPrefixOf` rawtxt) then -- open block comment
-    ((addWS lc cmt), rst) where
+    let
       cmt = cmt' <> (T.take 2 rst')
       rst = T.drop 2 rst'
       (cmt', rst') = T.breakOn "-}" rawtxt
+    in
+      ((addWS lc cmt), rst)
+
   else if ("--" `T.isPrefixOf` rawtxt) then -- handle single line comment
     (((ln+1),0), (T.unlines (tail (T.lines rawtxt)))) -- inc ln, 0 col, pick up again at next line
 
+  else (lc,rawtxt) -- nothing to skip, just pass the input back out
 
 
 ----- A PROBLEM FOR FUTURE ME -----
@@ -363,10 +374,13 @@ addWS (ln, col) ws =
 verifyModel :: UCFMLModel -> UCFMLFile
 verifyModel = undefined
 
-
+showt :: Show a => a -> T.Text
+showt = (T.pack . show)
 
 
 -- ignore all this until I remember wtf I was doing
+-- okay nvm this is about parsing out a text value
+-- I will rework this after fixing up the data types to add a conditional constructor
 {--
 
 
