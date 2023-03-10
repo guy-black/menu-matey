@@ -34,7 +34,7 @@ data UCFMLMeta =  UCFMLMeta
     , author   :: UCFMLText
     } deriving (Eq, Show)
 
-data UCFMLBody = UCFMLList OptType
+data UCFMLBody = UCFMLBody (UCFMLList OptType)
                deriving (Eq, Show)
 
 data OptType = Single  Option
@@ -101,7 +101,7 @@ data NumBase = Binary
              | Octal
              | Decimal
              | Hexadecimal
-             | CondBase Numbase
+             | CondBase NumBase
              deriving (Eq, Show)
 
 data ListIn = ListIn
@@ -117,10 +117,10 @@ data UCFMLVal = UBool UCFMLBool
               | UGate UCFMLGate
               | UOp   UCFMLOperator
               | UComp UCFMLComparison
-              | UList UCFMLList UCFMLVal
+              | UList (UCFMLList UCFMLVal)
               deriving (Eq, Show)
 
-data CompIn = CompIn UCFMLList ( UCFMLText, Input ) -- [ (label, input) ]
+data CompIn = CompIn (UCFMLList ( UCFMLText, Input )) -- [ (label, input) ]
             deriving (Eq, Show)
 
 data Validator = MustBe (UCFMLBool)
@@ -147,7 +147,8 @@ data UCFMLText = UnsetT
 
 data UCFMLList a = ResolvedL [a]
                  | Unresolved UCFMLListExpr
-                 | CondL UCFMLList (UCFMLBool, a)
+                 | CondL (UCFMLList (UCFMLBool, a))
+                 deriving (Eq, Show)
 
 data UCFMLExpr = BoolGen UCFMLBoolExpr
                | NumGen UCFMLNumExpr
@@ -179,6 +180,7 @@ data UCFMLBoolComp = UCFMLBoolComp
 
 data UCFMLNumExpr = Arith NumExpr
                   | Length GenLength
+                  deriving (Eq, Show)
 
 data NumExpr = NumExpr
     { neleft  :: UCFMLNum
@@ -188,6 +190,7 @@ data NumExpr = NumExpr
 
 data GenLength = TextLn UCFMLText
                | ListLn [UCFMLVal]
+               deriving (Eq, Show)
 
 data UCFMLTextExpr = SedExp UCFMLSedExp
                    | Conc UCFMLConcat
@@ -208,6 +211,7 @@ data UCFMLListExpr = RepeatLiExp  -- ListRepeat
                    | CombineLiExp -- ListInset
                    | ForEachLiExp -- ListForeach
                    | ReverseLiExp -- [ UCFMLVal ]
+                   deriving (Eq, Show)
 
 data UCFMLOperator = Add
                    | Sub
@@ -264,16 +268,21 @@ data UCFMLFilePath = UnixStyle UCFMLText
 -- parsing funcitons
 -- -----------------
 
+topLayerTags :: [T.Text]
+topLayerTags = ["Dictionary:", "Meta:", "Body:", "Template:"]
 
 -- empty model to fill in as we go
 emptyModel :: UCFMLModel
-emptyModel = UCFMLModel emptyMeta emptyBody emptyTemp
+emptyModel = UCFMLModel emptyDict emptyMeta emptyBody emptyTemp
+
+emptyDict :: M.Map T.Text UCFMLVal
+emptyDict = M.empty
 
 emptyMeta :: UCFMLMeta
 emptyMeta = UCFMLMeta UnsetT UnsetT UnsetT UnsetT
 
 emptyBody :: UCFMLBody
-emptyBody = UCFMLBody []
+emptyBody = UCFMLBody (ResolvedL [])
 
 emptyTemp :: UCFMLTemplate
 emptyTemp = UCFMLTemplate []
@@ -297,7 +306,7 @@ data FsmStates = RdDict  -- reading dictionary
 fsm :: [FsmStates] -> UCFMLModel -> (Int, Int) -> T.Text -> UCFMLFile
 
 -- empty fms means looking for top layer tags
-fsm [] pmod lc' rt' =
+fsm sl@[] pmod lc' rt' =
   let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
     if T.null rawtxt then                      -- if end of file
       fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
@@ -317,7 +326,7 @@ fsm [] pmod lc' rt' =
     else ParseError $ "expected either Dictionary: Meta: Body: or Template: at " <> showt lc
 
 -- fsm at the EOF station
-fsm sl@(EOF:_) pmod lc _ = verifyPartMod pmod
+fsm sl@(EOF:_) pmod lc _ = verifyModel pmod
 
 -- fsm at the RdMeta station
 fsm sl@(RdMeta:xs) pmod lc' rt' =
@@ -326,14 +335,42 @@ fsm sl@(RdMeta:xs) pmod lc' rt' =
       fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
 
     else if ("Title:" `T.isPrefixOf` rawtxt) then -- handle a Title: tag
-      undefined
+      case (textgenfsm lc (droplen "Title:" rawtxt)) of
+        Left (newlc, utxt, rst) ->
+          fsm sl pmod' newlc rst where
+            pmod' = undefined -- new model with utxt in Title
+        Right e -> ParseError e
+
+    else if ("About:" `T.isPrefixOf` rawtxt) then -- handle a About: tag
+      case (textgenfsm lc (droplen "About:" rawtxt)) of
+        Left (newlc, utxt, rst) ->
+          fsm sl pmod' newlc rst where
+            pmod' = undefined -- new model with utxt in About
+        Right e -> ParseError e
+
+    else if ("Upstream:" `T.isPrefixOf` rawtxt) then -- handle a Upstream: tag
+      case (textgenfsm lc (droplen "Upstream:" rawtxt)) of
+        Left (newlc, utxt, rst) ->
+          fsm sl pmod' newlc rst where
+            pmod' = undefined -- new model with utxt in Upstream
+        Right e -> ParseError e
+
+    else if ("Author:" `T.isPrefixOf` rawtxt) then -- handle a Author: tag
+      case (textgenfsm lc (droplen "Author:" rawtxt)) of
+        Left (newlc, utxt, rst) ->
+          fsm sl pmod' newlc rst where
+            pmod' = undefined -- new model with utxt in Author
+        Right e -> ParseError e
+
+    else if (topLayerTags `anyPrefixOf` rawtxt) then
+      fsm xs pmod lc rawtxt -- finished reading meta, go back to reading top layertags
 
     else
-      undefined
+      ParseError $ "Expected a Title:, About:, Upsream:, Author:, or a toplayer tag at" <> showt lc
 
 
 skipWsCom :: (Int, Int) -> T.Text -> ((Int, Int), T.Text)
-skipWsCom ls@(ln, col) rawtxt =
+skipWsCom lc@(ln, col) rawtxt =
   if (isSpace $ T.head rawtxt) then          -- if it start with white space
     let (ws,rst) = T.span isSpace rawtxt in  -- then update lc and recurse
       ((addWS lc ws), rst)
@@ -374,63 +411,57 @@ addWS (ln, col) ws =
 verifyModel :: UCFMLModel -> UCFMLFile
 verifyModel = undefined
 
+-- show Text
 showt :: Show a => a -> T.Text
 showt = (T.pack . show)
 
+-- remove drop from a Text the amount of characters in a Text
+droplen :: T.Text -> T.Text -> T.Text
+droplen stub whole = T.drop (T.length stub) whole
 
--- ignore all this until I remember wtf I was doing
--- okay nvm this is about parsing out a text value
--- I will rework this after fixing up the data types to add a conditional constructor
-{--
-
+-- checks if any of a list of Text `isPrefixOf` another text
+anyPrefixOf :: [ T.Text ] -> T.Text -> Bool
+anyPrefixOf xss txt = any id ((\x-> x `T.isPrefixOf` txt)<$>xss)
 
 -- in goes doc coords and the rawtxt
 -- out comes new doc coords and either the UCFMLText and the rest of the text, or an error
-textgenfsm :: (Int, Int) -> T.Text -> ((Int, Int), Either (UCFMLText, T.Text) T.Text)
-textgenfsm lc@(ln,col) rawtxt =
-  if T.null rawtxt then  -- if the text is empty
-    (lc, Left (UnsetT, rawtxt))   -- then return an unset UCFMLText
+textgenfsm :: (Int, Int) -> T.Text -> Either ((Int, Int),UCFMLText, T.Text) T.Text
+textgenfsm lc' rt' =
+  let (lc@(ln, col), rawtxt) = skipWsCom lc' rt' in
+    if T.null rawtxt then  -- if the text is empty
+      Left (lc, UnsetT, rawtxt)   -- then return an unset UCFMLText
 
-  else if isSpace $ T.head rawtxt then -- if it starts with whitespace char
-    let (ws,rst) = T.span isSpace rawtxt in -- then trim update lc and go on
-      textgenfsm (addWS lc ws) rst
+    else if T.head rawtxt == '"' then -- opening a quote, read up until next " as Resolved
+      let                             -- look for next " that is NOT preceded by \
+        rawquo = T.drop 1 rawtxt
+        mcquo = findCloseQuote "" rawquo
+      in
+        case mcquo of
+          Just (quot, rst) ->
+            Left ((nln, ncol + 1), (ResolvedT quot), rst) where
+              (nln, ncol) = addWS lc quot
+          Nothing ->
+            Right $ "could not find closing \" for \" at " <> showt lc
 
-  else if T.head rawtxt == '"' then -- opening a quote, read up until next " as Resolved
-    let                             -- look for next " that is NOT preceded by \
-      rawquo = T.drop 1 rawtxt
-      mcquo = findClosedQuote "" rawquo
-    in
-      case mcquo of
-        Just (quot, rst) ->
-          ((nln, ncol + 1), Left ((Resolved quot) rst)) where
-            (nln, ncol) = addWS lc quot
-        Nothing ->
-          (lc, Right "could not find closing \" for \" at")
+    else if "Concat:" `T.isPrefixOf` rawtxt then -- if it's a concat
+      undefined
+    else if "SedExp:" `T.isPrefixOf` rawtxt then -- if it's a sedExp
+      undefined
+    else if "Cond:" `T.isPrefixOf` rawtxt then -- handle the conditional
+      undefined
+    else -- this isn't a quoted text, white space, EOF, SedExp, Concat, or Cond.
+      Left (lc, UnsetT, rawtxt)   -- then return an unset UCFMLText
 
-  else if "Concat:" `T.isPrefixOf` rawtxt then -- if it's a concat
-
-  else if "SedExp:" `T.isPrefixOf` rawtxt then -- if it's a sedExp
-
-  else if "Cond:" `T.isPrefixOf` rawtxt then -- handle the conditional
-
-  else -- this isn't a quoted text, white space, EOF, SedExp, Concat, or Cond.
-    (lc, Left (UnsetT, rawtxt))   -- then return an unset UCFMLText
-
-  -- I just remembered that I have to handle conditionals basically everywhere except inside quoted text or comments
-  -- ughhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-  -- okay so really I only have to add it to RdTLT and RdMeta and textgenfsm
-  -- and then remembere to account for it in every other thing I add
-  -- smaller ughhhhhhhh
 
 findCloseQuote :: T.Text -> T.Text -> Maybe (T.Text, T.Text)
 findCloseQuote acc txt =
   if T.null txt then -- if no closing quote is found
     Nothing
-  else if T.head txt = '\' then -- if the next letter is an escape character
+  else if T.head txt == '\\' then -- if the next letter is an escape character
     findCloseQuote (acc <> T.take 2 txt) (T.drop 2 txt)
-  else if T.head txt = '"' then
-    Just (acc, (T.Drop 1 txt))
+  else if T.head txt == '"' then
+    Just (acc, (T.drop 1 txt))
   else
     findCloseQuote (acc <> T.take 1 txt) (T.drop 1 txt)
---}
+
 
