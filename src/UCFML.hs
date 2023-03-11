@@ -130,6 +130,7 @@ data Validator = MustBe (UCFMLBool)
 data UCFMLBool = UnsetB
                | UnresolvedB UCFMLBoolExpr
                | ResolvedB Bool
+               | CondB UCFMLBool
                deriving (Eq, Show)
 
 data UCFMLNum = UnsetN
@@ -138,11 +139,13 @@ data UCFMLNum = UnsetN
               | SignedInt Int
               | SignedFloat Float
               | UnresolvedN UCFMLNumExpr
+              | CondN UCFMLNum
               deriving (Eq, Show)
 
 data UCFMLText = UnsetT
                | ResolvedT T.Text
                | UnresolvedT UCFMLTextExpr
+               | CondT UCFMLText
                deriving (Eq, Show)
 
 data UCFMLList a = ResolvedL [a]
@@ -221,6 +224,7 @@ data UCFMLOperator = Add
                    | RemDiv
                    | Exp
                    | UnsetO
+                   | CondO UCFMLOperator
                    deriving (Eq, Show)
 
 data UCFMLComparison = EQ
@@ -230,6 +234,7 @@ data UCFMLComparison = EQ
                      | GTE
                      | LTE
                      | UnsetC
+                     | CondC UCFMLComparison
                      deriving (Eq, Show)
 
 data UCFMLGate = AND
@@ -249,6 +254,7 @@ data UCFMLGate = AND
                | RNOTL
                | NRNTL
                | UnsetG
+               | CondG UCFMLGate
                deriving (Eq, Show)
 
 data UCFMLTemplate = UCFMLTemplate [ UCFMLConFile ] deriving (Eq, Show)
@@ -293,13 +299,6 @@ data FsmStates = RdDict  -- reading dictionary
                | RdMeta  -- reading meta
                | RdBody  -- reading body
                | RdTemp  -- reading template
-               | RdText  -- reading a text value
-               | RdNumb  -- reading a number value
-               | RdBool  -- reading a boolean value
-               | RdGate  -- reading a gate value
-               | RdOper  -- reading a operator value
-               | RdComp  -- reading a comp value
-               | RdBase  -- reading a base value
                | EOF     -- file ended in a place that's not obviously wrong (inside brackets or quotes etc)
 
 
@@ -328,6 +327,16 @@ fsm sl@[] pmod lc' rt' =
 -- fsm at the EOF station
 fsm sl@(EOF:_) pmod lc _ = verifyModel pmod
 
+
+fsm sl@(RdDict:xs) pmod lc' rt' =
+  let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
+    if T.null rawtxt then                      -- if end of file
+      fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
+
+    else
+      undefined
+
+
 -- fsm at the RdMeta station
 fsm sl@(RdMeta:xs) pmod lc' rt' =
   let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
@@ -338,28 +347,36 @@ fsm sl@(RdMeta:xs) pmod lc' rt' =
       case (textgenfsm lc (droplen "Title:" rawtxt)) of
         Left (newlc, utxt, rst) ->
           fsm sl pmod' newlc rst where
-            pmod' = undefined -- new model with utxt in Title
+            oldmeta = meta pmod
+            meta' = oldmeta { mentitle = utxt }
+            pmod' = pmod { meta = meta' }
         Right e -> ParseError e
 
     else if ("About:" `T.isPrefixOf` rawtxt) then -- handle a About: tag
       case (textgenfsm lc (droplen "About:" rawtxt)) of
         Left (newlc, utxt, rst) ->
           fsm sl pmod' newlc rst where
-            pmod' = undefined -- new model with utxt in About
+            oldmeta = meta pmod
+            meta' = oldmeta { aboutmen = utxt }
+            pmod' = pmod { meta = meta' }
         Right e -> ParseError e
 
     else if ("Upstream:" `T.isPrefixOf` rawtxt) then -- handle a Upstream: tag
       case (textgenfsm lc (droplen "Upstream:" rawtxt)) of
         Left (newlc, utxt, rst) ->
           fsm sl pmod' newlc rst where
-            pmod' = undefined -- new model with utxt in Upstream
+            oldmeta = meta pmod
+            meta' = oldmeta { upstream = utxt }
+            pmod' = pmod { meta = meta' }
         Right e -> ParseError e
 
     else if ("Author:" `T.isPrefixOf` rawtxt) then -- handle a Author: tag
       case (textgenfsm lc (droplen "Author:" rawtxt)) of
         Left (newlc, utxt, rst) ->
           fsm sl pmod' newlc rst where
-            pmod' = undefined -- new model with utxt in Author
+            oldmeta = meta pmod
+            meta' = oldmeta { author = utxt }
+            pmod' = pmod { meta = meta' }
         Right e -> ParseError e
 
     else if (topLayerTags `anyPrefixOf` rawtxt) then
@@ -367,6 +384,25 @@ fsm sl@(RdMeta:xs) pmod lc' rt' =
 
     else
       ParseError $ "Expected a Title:, About:, Upsream:, Author:, or a toplayer tag at" <> showt lc
+
+
+fsm sl@(RdBody:xs) pmod lc' rt' =
+  let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
+    if T.null rawtxt then                      -- if end of file
+      fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
+
+    else
+      undefined
+
+
+fsm sl@(RdTemp:xs) pmod lc' rt' =
+  let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
+    if T.null rawtxt then                      -- if end of file
+      fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
+
+    else
+      undefined
+
 
 
 skipWsCom :: (Int, Int) -> T.Text -> ((Int, Int), T.Text)
@@ -444,7 +480,7 @@ textgenfsm lc' rt' =
             Right $ "could not find closing \" for \" at " <> showt lc
 
     else if "Concat:" `T.isPrefixOf` rawtxt then -- if it's a concat
-      undefined
+      undefined -- need to work out how to parse out a UCFMLList
     else if "SedExp:" `T.isPrefixOf` rawtxt then -- if it's a sedExp
       undefined
     else if "Cond:" `T.isPrefixOf` rawtxt then -- handle the conditional
