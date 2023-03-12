@@ -121,10 +121,11 @@ data UCFMLVal = UBool UCFMLBool
               | UList (UCFMLList UCFMLVal)
               deriving (Eq, Show)
 
-data UCFMLTypes = TBool
-                | TNum
-                | TText
-                | TGate
+data UCFMLType = TBool
+               | TNum
+               | TText
+               | TGate
+               | TOptType
 
 
 data CompIn = CompIn (UCFMLList ( UCFMLText, Input )) -- [ (label, input) ]
@@ -399,8 +400,10 @@ fsm sl@(RdBody:xs) pmod lc' rt' =
       fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
 
     else
-      case (listgenfsm lc OptType rawtxt) of
-        Left
+      case (listgenfsm lc rawtxt TOptType) of
+        Left _ -> undefined
+        Right _ -> undefined
+
 
 fsm sl@(RdTemp:xs) pmod lc' rt' =
   let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
@@ -510,5 +513,5 @@ findCloseQuote acc txt =
 
 
 
-listgenfsm :: (Int, Int) -> T.Text -> UCFMLVal -> Either ((Int, Int),UCFMLList a, T.Text) T.Text
+listgenfsm :: (Int, Int) -> T.Text -> UCFMLType -> Either ((Int, Int),UCFMLList a, T.Text) T.Text
 listgenfsm = undefined
