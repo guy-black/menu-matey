@@ -117,8 +117,15 @@ data UCFMLVal = UBool UCFMLBool
               | UGate UCFMLGate
               | UOp   UCFMLOperator
               | UComp UCFMLComparison
+              | UOptType OptType
               | UList (UCFMLList UCFMLVal)
               deriving (Eq, Show)
+
+data UCFMLTypes = TBool
+                | TNum
+                | TText
+                | TGate
+
 
 data CompIn = CompIn (UCFMLList ( UCFMLText, Input )) -- [ (label, input) ]
             deriving (Eq, Show)
@@ -392,8 +399,8 @@ fsm sl@(RdBody:xs) pmod lc' rt' =
       fsm (EOF:sl) pmod lc rawtxt              -- then goto eof station
 
     else
-      undefined
-
+      case (listgenfsm lc OptType rawtxt) of
+        Left
 
 fsm sl@(RdTemp:xs) pmod lc' rt' =
   let (lc@(ln,col), rawtxt) = skipWsCom lc' rt' in
@@ -501,3 +508,7 @@ findCloseQuote acc txt =
     findCloseQuote (acc <> T.take 1 txt) (T.drop 1 txt)
 
 
+
+
+listgenfsm :: (Int, Int) -> T.Text -> UCFMLVal -> Either ((Int, Int),UCFMLList a, T.Text) T.Text
+listgenfsm = undefined
